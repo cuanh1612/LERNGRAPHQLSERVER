@@ -1,38 +1,30 @@
-import { ApolloServer, gql } from "apollo-server";
+import { ApolloServerPluginDrainHttpServer } from "apollo-server-core";
+import { ApolloServer } from "apollo-server-express";
+import express from "express";
+import http from "http";
+import { resolvers } from "./resolves.js";
+import { typeDefs } from "./typedefs.js";
 
-const typeDefs = gql`
-  type Book {
-    title: String
-    author: String
-  }
+async function startApolloServer(typeDefs, resolvers) {
+  const app = express();
+  const httpServer = http.createServer(app);
 
-  type Query {
-    books: [Book]
-  }
-`;
+  //Create apolloserver
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    csrfPrevention: true,
+    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+  });
 
-//Define your data set
-const books = [
-  {
-    title: "Te Awakening",
-    author: "Kate Chopin",
-  },
-  {
-    title: "City of Glass",
-    author: "Paul Auster",
-  },
-];
+  await server.start();
+  server.applyMiddleware({
+    app,
+    path: "/",
+  });
 
-//Define a resolver
-const resolvers = {
-  Query: {
-    books: () => books,
-  },
-};
+  await new Promise((resolve) => httpServer.listen({ port: 4000 }, resolve));
+  console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`);
+}
 
-//Create an instance of apolloserver
-const server = new ApolloServer({ typeDefs, resolvers });
-
-server.listen().then(({ url }) => {
-  console.log(`Server ready at ${url}`);
-});
+startApolloServer(typeDefs, resolvers);
